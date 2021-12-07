@@ -1,6 +1,8 @@
-import functions as fn
-import matplotlib.pyplot as plt
+"""tests for functions in module"""
 import pandas as pd
+import matplotlib.pyplot as plt
+import functions as fn
+
 
 test_df = pd.read_csv("yield_df.csv")
 
@@ -56,7 +58,7 @@ def test_ols():
     summary and mse will still be printed"""
     x_model = fn.wrangle_frame(test_df).drop(["hg/ha_yield"])
     y_model = fn.wrangle_frame(test_df)["hg/ha_yield"]
-    assert len(fn.ols_model.predict(x_model)) == len(
+    assert len(fn.ols_model(y_model).predict(x_model)) == len(
                 y_model)
 
     print("ols tests passed")
@@ -68,6 +70,6 @@ def test_random_forest():
     by ht erandom_forest_model function"""
     x_model = fn.wrangle_frame(test_df).drop(["hg/ha_yield"])
     y_model = fn.wrangle_frame(test_df)["hg/ha_yield"]
-    assert len(fn.random_forest_model.predict(x_model)) == len(
+    assert len(fn.random_forest_model(y_model).predict(x_model)) == len(
                           y_model)
     print("random forest tests passed")
