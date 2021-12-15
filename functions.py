@@ -1,42 +1,65 @@
-"""Functions for analysis of agricultural yield"""
-# from pandas.core.frame import DataFrame
-import matplotlib.pyplot as plt
+"""Functions for analysis of agricultural yield
+with diff in diff"""
+from sklearn.model_selection import cross_validate
+import sklearn.ensemble
+from sklearn import preprocessing
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 import seaborn as sns
-# import statsmodels as sms
+import statsmodels.formula.api as smf
 # from sklearn.ensemble import RandomForestRegressor
-
-# wrangling weather_df for merge
 
 
 def wrangle_frame():
+    """"function that cleans and merges 8 csv files into one
+    dataframe, also renames neccessary variables as well as does
+    necessary column transformations"""
+    # wrangling rain_df for merging
+    # the data is static by country as unfortunately no good time series
+    # data existed for rainfall
 
-    weather_df = pd.read_csv("yield_df.csv")
+    rain_df = pd.read_csv("aquastat.csv")
 
-    weather_df = weather_df[["Area", "Year",
-                            "average_rain_fall_mm_per_year",
-                             "avg_temp"]]
+    rain_df = rain_df[["Area", "Value"]]
 
-    weather_df = weather_df.sort_values(['Area', 'Year'], ascending=True)
+    # making the data based on standard deviations from global mean 990 mm
+    # to avoid collinearity with intercept
 
-    weather_df = weather_df.groupby(['Area', 'Year']).first().reset_index()
+    rain_df["Value"] = (rain_df["Value"] - 990) / rain_df["Value"].std()
 
-    print(weather_df)
+    rain_df = rain_df.rename(columns={"Value": "rain_stdev"})
 
-# print(weather_df.head())
+# wrangling tempurature data for merging
+
+    temp_df = pd.read_csv("tempstat.csv")
+
+    temp_df = temp_df[["dt", "Country", "AverageTemperature"]]
+
+    temp_df['dt'] = pd.to_datetime(temp_df['dt'])
+
+    temp_df['dt'] = pd.DatetimeIndex(temp_df['dt']).year
+
+    temp_df = temp_df.rename(columns={"Country": "Area", "dt": "Year"})
+
+    temp_df = temp_df.dropna()
+
+    temp_df = temp_df.groupby(["Area", "Year"], as_index=False)[
+                               "AverageTemperature"].mean()
+
+    temp_df = temp_df[temp_df["Year"] >= 1990]
 
 # wrangling yield_df for merge
 
     yield_df = pd.read_csv("FAOSTAT_data_croptype.csv")
 
-    yield_df = yield_df.rename(columns={"Value": "Yield_hg\ha"})
+    yield_df = yield_df.rename(columns={"Value": "Yield_hg_ha"})
 
-    yield_df = yield_df[["Area", "Year", "Item", "Yield_hg\ha"]]
+    yield_df = yield_df[["Area", "Year", "Item", "Yield_hg_ha"]]
 
     yield_df = yield_df.groupby(["Area", "Year"],
-                                as_index=False)["Yield_hg\ha"].sum()
+                                as_index=False)["Yield_hg_ha"].mean()
 
-# print(yield_df.head())
 
 # wrangling land_df for merge
 
@@ -48,7 +71,6 @@ def wrangle_frame():
 
     land_df["ha_cropland"] = land_df["ha_cropland"] * 1000
 
-# print(land_df.head())
 
 # wrangling fertilizer_df for merge
 
@@ -71,18 +93,17 @@ def wrangle_frame():
 
     fertilizer_df = fertilizer_df.rename(columns={
                                          "Nutrient nitrogen N (total)":
-                                         "kg_nitrogen_fertilizer",
+                                         "kg_nitrogen",
                                          "Nutrient phosphate P2O5 (total)":
-                                         "kg_phosphate_fertilizer",
+                                         "kg_phosphate",
                                          "Nutrient potash K2O (total)":
-                                         "kg_potash_fertilizer"})
+                                         "kg_potash"})
 
-    fertilizer_df[["kg_nitrogen_fertilizer", "kg_phosphate_fertilizer",
-                   "kg_potash_fertilizer"]] = fertilizer_df[
-                                       ["kg_nitrogen_fertilizer",
-                                        "kg_phosphate_fertilizer",
-                                        "kg_potash_fertilizer"]] * 1000
-# print(fertilizer_df.head())
+    fertilizer_df[["kg_nitrogen", "kg_phosphate",
+                   "kg_potash"]] = fertilizer_df[
+                                       ["kg_nitrogen",
+                                        "kg_phosphate",
+                                        "kg_potash"]] * 1000
 
 
 # wrangling manure_df for merge
@@ -118,14 +139,34 @@ def wrangle_frame():
                                         ["kg_Fungicides_Bactericides",
                                          "kg_Herbicides",
                                          "kg_Insecticides"]] * 1000
-# print(pesticides_df.head())
-# wrangling gdp_df for merge
 
-    gdp_df = pd.read_csv("FAOSTAT_data_gdp.csv")
+# wrangling gnp_df for merge
 
-    gdp_df = gdp_df[["Area", "Year", "Value"]]
+    gnp_df = pd.read_csv("gnp_data.csv")
 
-    gdp_df = gdp_df.rename(columns={"Value": "percap_gdp($)"})
+    gnp_df = gnp_df.rename(columns={"Country Name": "Area"})
+
+    keys = [c for c in gnp_df if c.startswith('1') or c.startswith('2')]
+
+    gnp_df = pd.melt(gnp_df, id_vars='Area', value_vars=keys,
+                     value_name='GNI')
+    gnp_df = gnp_df.rename(columns={"variable": "Year"})
+
+    gnp_df["Year"] = pd.to_numeric(gnp_df["Year"])
+
+    gnp_df = gnp_df.loc[gnp_df['Year'] >= 1990]
+
+    gnp_df = gnp_df.loc[gnp_df['Year'] <= 2013]
+
+    gnp_df.dropna()
+
+    gnp_df["is_wealthy"] = 0
+
+    gnp_df["is_wealthy"] = gnp_df.is_wealthy.where(gnp_df.GNI <= 12000, 1)
+
+    gnp_df["post_2008"] = 0
+
+    gnp_df["post_2008"] = gnp_df.post_2008.where(gnp_df.Year < 2008, 1)
 
 # merging dataframes
 
@@ -134,7 +175,9 @@ def wrangle_frame():
                                     on=["Area", "Year"], how="left")
         return final_df
 
-    final_agro_df = merger_fun(weather_df, yield_df)
+    # final_agro_df = merger_fun(weather_df, yield_df)
+
+    final_agro_df = yield_df
 
     final_agro_df = merger_fun(final_agro_df, land_df)
 
@@ -144,53 +187,272 @@ def wrangle_frame():
 
     final_agro_df = merger_fun(final_agro_df, pesticides_df)
 
-    final_agro_df = merger_fun(final_agro_df, gdp_df)
+    final_agro_df = merger_fun(final_agro_df, temp_df)
 
+    final_agro_df = merger_fun(final_agro_df, gnp_df)
+
+    final_agro_df = final_agro_df.merge(rain_df,
+                                        on=["Area"], how="right")
     column_list = ["kg_Fungicides_Bactericides",
                    "kg_Herbicides", "kg_Insecticides",
-                   "kg_nitrogen_fertilizer", "kg_phosphate_fertilizer",
-                   "kg_potash_fertilizer", "kg_manure"]
+                   "kg_nitrogen", "kg_phosphate",
+                   "kg_potash", "kg_manure"]
 
     for i in column_list:
         final_agro_df[i] = final_agro_df[i] / final_agro_df["ha_cropland"]
-        final_agro_df = final_agro_df.rename(columns={i: i + str("\ha")})
-    return final_agro_df
+        final_agro_df = final_agro_df.rename(columns={i: i + str("_ha")})
+
+    final_agro_df = final_agro_df.drop_duplicates(subset=[
+                                                  "AverageTemperature"])
+
+    final_agro_df = final_agro_df.rename(columns={"Yield_hg_ha":
+                                                  "Total_Yield"})
+
+    final_agro_df["Total_Yield"] = final_agro_df[
+                                   "Total_Yield"] * final_agro_df[
+                                                    "ha_cropland"]
+
+    final_agro_df["Log_Yield"] = np.log(final_agro_df["Total_Yield"])
+
+    return final_agro_df.dropna()
 
 
-cleaned_data = wrangle_frame()
-
-plt.figure(1)
-
-pesticide_line_plot = 
-
-def graph_agri():
+# plotting function
 
 
+def graph_agri(dataframe):
     """returns informative graphs exploring the
     relationship between different variables that
-    could effect agricultural yeild, including tempurature,
+    could effect agricultural yield, including gdp,
     rainfall, pesticide use, and crop type"""
 
+# importing dataframe
+    cleaned_data = dataframe
 
-def summary_stats(column_name):
+# charting mean pesticide use over the years
+    plt.figure(1)
+
+    pest_columns = ["kg_Insecticides_ha", "kg_Herbicides_ha",
+                    "kg_Fungicides_Bactericides_ha"]
+
+    pest_plot_df = cleaned_data[["Year", "kg_Insecticides_ha",
+                                "kg_Herbicides_ha",
+                                 "kg_Fungicides_Bactericides_ha"]]
+    pest_plot_df = pest_plot_df.groupby("Year",
+                                        as_index=False)[
+                                        pest_columns].mean()
+
+    for i in range(3):
+        plt.plot(pest_plot_df["Year"], pest_plot_df[pest_columns[i]],
+                 label=pest_columns[i])
+    plt.ylabel("average kg/ha")
+    plt.xlabel("year")
+    plt.title("mean pesticide use 1990-2013")
+    plt.legend(loc='upper left')
+
+    plt.savefig("pesticide_use")
+    plt.clf()
+# charting mean fertilizer use over the years
+    plt.figure(2)
+
+    fert_columns = ["kg_nitrogen_ha", "kg_phosphate_ha",
+                    "kg_potash_ha", "kg_manure_ha"]
+
+    fert_plot_df = cleaned_data[["Year", "kg_nitrogen_ha",
+                                 "kg_phosphate_ha",
+                                "kg_potash_ha", "kg_manure_ha"]]
+
+    fert_plot_df = fert_plot_df.groupby("Year",
+                                        as_index=False)[
+                                        fert_columns].mean()
+
+    for i in range(4):
+        plt.plot(fert_plot_df["Year"], fert_plot_df[fert_columns[i]],
+                 label=fert_columns[i])
+    plt.ylabel("average kg/ha")
+    plt.xlabel("year")
+    plt.title("mean fertilizer use 1990-2013")
+    plt.legend(loc='upper left')
+
+    plt.savefig("fertilizer_use")
+
+    plt.clf()
+# charting percent change of crop yeild over years,
+# to see if their were any global supply shocks
+    plt.figure(3)
+
+    crop_yield_df = cleaned_data
+    crop_yield_pct = crop_yield_df.groupby("Area",
+                                           as_index=False)[
+                                           "Total_Yield"].pct_change()
+    crop_yield_pct = crop_yield_pct.dropna()
+
+    crop_yield_df = pd.merge(crop_yield_df, crop_yield_pct, left_index=True,
+                             right_index=True)
+
+    crop_yield_df = crop_yield_df.set_index(["Area",
+                                            "Year"])["Total_Yield_y"].unstack()
+
+    crop_yield_df = crop_yield_df.dropna()
+
+    crop_yield_df = crop_yield_df.reset_index()
+    Index_heat = crop_yield_df["Area"]
+    cols_heat = list()
+    for i in list(range(1991, 2013)):
+        cols_heat.append(i)
+
+    crop_yield_df = crop_yield_df[cols_heat].to_numpy()
+
+    crop_yield_df = pd.DataFrame(crop_yield_df, index=Index_heat,
+                                 columns=cols_heat)
+
+    sns.heatmap(data=crop_yield_df)
+
+    plt.savefig("crop_heat")
+    plt.clf()
+# plotting percapita gdp against log_yeild, to see
+# if richer countries generally have larger yields
+    plt.figure(4)
+
+    plt.scatter(cleaned_data["GNI"], cleaned_data["Log_Yield"])
+
+    plt.title("GNI vs Log Crop Yield")
+
+    plt.xlabel("GNI")
+
+    plt.ylabel("Log Yield")
+
+    plt.savefig("GNI_yield")
+    plt.clf()
+# plotting insecticide use vs log_yield
+    plt.figure(5)
+
+    plt.scatter(cleaned_data["kg_Insecticides_ha"], cleaned_data["Log_Yield"])
+
+    plt.title("Insecticide use vs Crop Yield")
+
+    plt.xlabel("Insecticides kg/ha")
+
+    plt.ylabel("Log_Yield")
+
+    plt.savefig("insecticide_yield")
+    plt.clf()
+# plotting herbicide use vs log_yield
+    plt.figure(6)
+
+    plt.scatter(cleaned_data["kg_Herbicides_ha"], cleaned_data["Log_Yield"])
+
+    plt.title("Herbecide use vs Log Crop Yield")
+
+    plt.xlabel("Herbicide kg/ha")
+
+    plt.ylabel("Log Yield")
+
+    plt.savefig("herbicide_yield")
+    plt.clf()
+# plotting fungicide use vs log_yield
+    plt.figure(7)
+
+    plt.scatter(cleaned_data["kg_Fungicides_Bactericides_ha"],
+                cleaned_data["Log_Yield"])
+
+    plt.title("Fungicide/Bactericide use vs Log Crop Yield")
+
+    plt.xlabel("Fungicide/Bactericide kg/ha")
+
+    plt.ylabel("Log Yield")
+
+    plt.savefig("Fung_bac_yield")
+    plt.clf()
+# plotting manure use vs gdp
+    plt.figure(8)
+
+    plt.scatter(cleaned_data["AverageTemperature"], cleaned_data[
+                            "rain_stdev"])
+
+    plt.title("temp vs rain")
+
+    plt.xlabel("temp")
+
+    plt.ylabel("rain")
+
+    plt.savefig("rain_temp_gdp")
+
+    plt.clf()
+
+
+# printing out summary stats
+def summary_stats(numeric_vector):
     """"returns summary statistics for
     each relevant column in the dataframe,
     in order to better understand the distribution
     of data, called for each column and returns a list,
-    of mean, st. dev, variance, and median"""
-    return column_name
+    of mean, st. dev, variance, and median, there are
+    no non-numeric independent columns"""
+    cleaned_data = wrangle_frame()
+    print()
+    print("Column Means")
+    print()
+    print(cleaned_data[numeric_vector].mean(numeric_only=True))
+    print()
+    print("Column st.devs")
+    print()
+    print(cleaned_data[numeric_vector].std(numeric_only=True))
+    print()
+    print("Column variances")
+    print()
+    print(cleaned_data[numeric_vector].var(numeric_only=True))
+    print()
+    print("Column medians")
+    print()
+    print(cleaned_data[numeric_vector].median(numeric_only=True))
+    print()
+
+# define column vector to summarize
 
 
+# ols model function
 def ols_model(dataframe):
     """runs an ols regression predicting yield,
        based on relevent variables such as tempurature,
        pesticide use, rainfall , and other relevent variables.
-       uses training and test sets to k-fold cross validate.
+       uses training and test sets to cross validate.
        returns model and prediction accuracy"""
-    return dataframe
+# note rainfall, tempurature are collinear with eachother, gdp_per cap is
+# collinear with temp,
+# insecticide use is collinear with rainfall, due to tropics, what to do ?
+    cleaned_data = dataframe
+
+    diff_means_df = cleaned_data.groupby(["is_wealthy", "Year"],
+                                         as_index=False)["Total_Yield"].mean()
+
+    diff_means_df["post_2008"] = 0
+
+    diff_means_df["post_2008"] = diff_means_df.post_2008.where(
+                                 diff_means_df.Year < 2008, 1)
+
+    diff_means_df = diff_means_df.set_index(["Year",
+                                             "is_wealthy",
+                                             "post_2008"]).unstack(
+                                            "is_wealthy")
+
+    diff_means_df = diff_means_df.groupby("post_2008").mean()
+
+    print(diff_means_df)
+
+    smf_model = smf.ols(formula="Log_Yield~is_wealthy + post_2008 +" +
+                        str("post_2008*is_wealthy + rain_stdev +") +
+                        str("AverageTemperature + kg_Insecticides_ha") +
+                        str(" + kg_Fungicides_Bactericides_ha") +
+                        str(" + kg_Herbicides_ha + kg_potash_ha") +
+                        str(" + kg_nitrogen_ha + kg_phosphate_ha") +
+                        str("+ kg_manure_ha"), data=cleaned_data)
+
+    return smf_model
 
 
 # might test out a boosting and bagging model as well
+
 
 def random_forest_model(dataframe):
     """runs a more flexible model, random forest
@@ -198,4 +460,71 @@ def random_forest_model(dataframe):
        and the relevent variables.
        uses training and test sets to k-fold cross validate.
        returns random forest model and prediction accuracy"""
-    return dataframe
+    cleaned_data = dataframe
+    feature_list = ["kg_nitrogen_ha", "kg_phosphate_ha",
+                    "kg_potash_ha", "kg_manure_ha",
+                    "kg_Fungicides_Bactericides_ha",
+                    "kg_Herbicides_ha", "kg_Insecticides_ha",
+                    "AverageTemperature",
+                    "rain_stdev", "is_wealthy",
+                    "post_2008"]
+    x_var = cleaned_data[feature_list]
+
+    x_columns = x_var.columns
+
+    # normalizing data
+
+    x_var = preprocessing.normalize(x_var)
+
+    y_var = cleaned_data[["Log_Yield"]].values.ravel()
+
+    forest = sklearn.ensemble.RandomForestRegressor(random_state=5,
+                                                    n_estimators=500,
+                                                    max_depth=5)
+
+    cv = cross_validate(forest, x_var, y_var, cv=5,
+                        scoring="neg_mean_absolute_percentage_error")
+
+    mean_per = cv["test_score"].mean()
+
+    print("test score array")
+
+    print(cv["test_score"])
+
+    print("Mean percentage error")
+
+    print(mean_per)
+    forest.fit(x_var, y_var)
+    feat_importances = pd.Series(forest.feature_importances_,
+                                 index=x_columns)
+    feat_importances.nlargest(4).plot(kind='barh')
+
+    return mean_per
+
+
+def main():
+    """function desinged to call all module functions"""
+    wrangled = wrangle_frame()
+
+    # graph_agri(wrangled)
+
+    columns_to_summarize = ["Total_Yield", "ha_cropland",
+                            "kg_nitrogen_ha", "kg_phosphate_ha",
+                            "kg_potash_ha", "kg_manure_ha",
+                            "kg_Fungicides_Bactericides_ha",
+                            "kg_Herbicides_ha", "kg_Insecticides_ha",
+                            "GNI", "AverageTemperature",
+                            "rain_stdev", "Log_Yield"]
+
+    summary_stats(columns_to_summarize)
+
+    model_1 = ols_model(wrangled)
+
+    model_fit = model_1.fit()
+
+    print(model_fit.summary())
+
+    random_forest_model(wrangled)
+
+
+main()

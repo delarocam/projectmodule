@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import functions as fn
 
 
-test_df = pd.read_csv("yield_df.csv")
+test_df = pd.read_csv("FAOSTAT_data_croptype.csv")
 
 
 def test_data_wrangle():
@@ -13,9 +13,13 @@ def test_data_wrangle():
     was correctly organized, cleaned and merged.
     and has the 6 extra columns, 5 for each crop type,
     and 1 for lagged rainfall """
-    assert len(fn.wrangle_frame(test_df).columns) == 12
-    original_len = len(test_df["rain"])
-    assert len(fn.wrangle_frame(test_df)["lagged_rain"]) <= original_len
+    assert len(fn.wrangle_frame().columns) == 14
+    original_len = len(test_df["Value"])
+    assert len(fn.wrangle_frame()["AverageTemperature"]) <= original_len
+
+    assert max(fn.wrangle_frame()["Year"]) == 2013
+
+    assert min(fn.wrangle_frame()["Year"]) == 1990
 
     print("data wrangle tests passed")
 
@@ -26,7 +30,7 @@ def test_graph_agri():
     error. Preliminary plans to make 6 plots"""
     def subtest_1():
         fn.graph_agri()
-        assert plt.gcf().number == 6
+        assert plt.gcf().number == 8
 
     def subtest_2():
         num_figures_before = plt.gcf().number
@@ -39,6 +43,9 @@ def test_graph_agri():
     subtest_2()
 
     print("graphing tests passed")
+
+
+test_graph_agri()
 
 
 def test_summary_stats():
