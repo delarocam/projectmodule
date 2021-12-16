@@ -15,7 +15,7 @@ def rain_frame():
     """cleans and modifies rain data for merge"""
     rain_df = pd.read_csv("aquastat.csv")
 
-    rain_df.loc[~(rain_df == 0).all(axis=1)]
+    rain_df = rain_df.loc[~(rain_df == 0).all(axis=1)]
 
     rain_df = rain_df[["Area", "Value"]]
 
@@ -277,15 +277,10 @@ def wrangle_frame():
     return final_agro_df.dropna()
 
 
-# plotting function
-
-
-def time_plot(dataframe):
+def fung_fert_time_plot(dataframe):
     """returns informative graphs exploring the
     relationship between agricultural yield and inputs
     expressed over time"""
-
-# importing dataframe
     cleaned_data = dataframe
 
 # charting mean pesticide use over the years
@@ -338,10 +333,13 @@ def time_plot(dataframe):
     plt.savefig("fertilizer_use")
 
     plt.clf()
-# charting percent change of crop yield over years,
-# to see if their were any global supply shocks
-    plt.figure(3)
 
+
+def yield_time_plot(data_frame):
+    """plots for yeild over time"""
+# charting percent change of crop yield over years,
+    plt.figure(3)
+    cleaned_data = data_frame
     crop_yield_df = cleaned_data
     crop_yield_np = crop_yield_df.groupby("Area",
                                           as_index=False)[
@@ -357,14 +355,14 @@ def time_plot(dataframe):
     crop_yield_np = crop_yield_np.dropna()
 
     crop_yield_np = crop_yield_np.reset_index()
-    Index_heat = crop_yield_np["Area"]
+    index_heat = crop_yield_np["Area"]
     cols_heat = list()
     for i in list(range(1991, 2013)):
         cols_heat.append(i)
 
     crop_yield_np = crop_yield_np[cols_heat].to_numpy()
 
-    crop_yield_np = pd.DataFrame(crop_yield_np, index=Index_heat,
+    crop_yield_np = pd.DataFrame(crop_yield_np, index=index_heat,
                                  columns=cols_heat)
 
     sns.heatmap(data=crop_yield_np)
@@ -566,9 +564,16 @@ def random_forest_model(dataframe):
                     "AverageTemperature",
                     "rain_stdev", "is_wealthy",
                     "post_2008"]
+
     x_var = cleaned_data[feature_list]
 
     x_columns = x_var.columns
+
+    # truncates feature names to more easily see on
+    # graph
+
+    for i in range(len(feature_list)):
+        feature_list[i] = feature_list[i][0:5]
 
     # normalizing data
 
@@ -580,14 +585,14 @@ def random_forest_model(dataframe):
                                                     n_estimators=500,
                                                     max_depth=5)
 
-    cv = cross_validate(forest, x_var, y_var, cv=5,
-                        scoring="neg_mean_absolute_percentage_error")
+    cv_mod = cross_validate(forest, x_var, y_var, cv=5,
+                            scoring="neg_mean_absolute_percentage_error")
 
-    mean_per = cv["test_score"].mean()
+    mean_per = cv_mod["test_score"].mean()
 
     print("test score array")
 
-    print(cv["test_score"])
+    print(cv_mod["test_score"])
 
     print("Mean percentage error")
 
@@ -598,7 +603,7 @@ def random_forest_model(dataframe):
     feat_importances = pd.Series(forest.feature_importances_,
                                  index=x_columns)
     plt.figure(11)
-    
+
     feat_importances.nlargest(11).plot(kind='barh')
 
     plt.title("relative importance")
@@ -612,7 +617,9 @@ def main():
     """function desinged to call all module functions"""
     wrangled = wrangle_frame()
 
-    time_plot(wrangled)
+    fung_fert_time_plot(wrangled)
+
+    yield_time_plot(wrangled)
 
     scatter_plots(wrangled)
 

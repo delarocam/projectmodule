@@ -1,27 +1,27 @@
 """tests for functions in module"""
 import pandas as pd
 import matplotlib.pyplot as plt
-from pandas.core.algorithms import quantile
-from pandas.core.indexes import numeric
 import functions as fn
-import math
-import unittest
-from numpy.testing import assert_almost_equal
+
+
+wrangle = fn.wrangle_frame()
 
 
 def test_rain_df():
     """test rain_df correct output"""
     rain_df = pd.read_csv("aquastat.csv")
 
-    assert len(fn.rain_frame().columns) == 2
+    rain_clean = fn.rain_frame()
 
-    assert len(fn.rain_frame()["rain_stdev"]) <= len(rain_df["Value"])
+    assert len(rain_clean.columns) == 2
 
-    assert len(fn.rain_frame().loc[~(fn.rain_frame() == 0).all(axis=1)][
+    assert len(rain_clean["rain_stdev"]) <= len(rain_df["Value"])
+
+    assert len(rain_clean.loc[~(rain_clean == 0).all(axis=1)][
            "rain_stdev"]) <= len(rain_df["Value"])
 
-    assert len(fn.rain_frame().dropna()[
-           "rain_stdev"]) == len(fn.rain_frame()["rain_stdev"])
+    assert len(rain_clean.dropna()[
+           "rain_stdev"]) == len(rain_clean["rain_stdev"])
     print("test_rain passed")
 
 
@@ -29,13 +29,15 @@ def test_temp():
     """test temp_df correct output"""
     temp_df = pd.read_csv("tempstat.csv")
 
-    assert len(fn.temp_frame().columns) == 3
+    temp_clean = fn.temp_frame()
 
-    assert len(fn.temp_frame()["AverageTemperature"]) <= len(temp_df[
+    assert len(temp_clean.columns) == 3
+
+    assert len(temp_clean["AverageTemperature"]) <= len(temp_df[
                                                          "AverageTemperature"])
 
-    assert len(fn.temp_frame().dropna()[
-           "AverageTemperature"]) == len(fn.temp_frame()["AverageTemperature"])
+    assert len(temp_clean.dropna()[
+           "AverageTemperature"]) == len(temp_clean["AverageTemperature"])
     print("test_temp passed")
 
 
@@ -43,16 +45,18 @@ def test_yield():
     """test yield_df correct output"""
     yield_df = pd.read_csv("FAOSTAT_data_croptype.csv")
 
-    assert len(fn.yield_frame().columns) == 3
+    yield_clean = fn.yield_frame()
 
-    assert len(fn.yield_frame()["Yield_hg_ha"]) <= len(yield_df["Value"])
+    assert len(yield_clean.columns) == 3
 
-    assert len(fn.yield_frame().loc[~(fn.yield_frame() == 0).all(
+    assert len(yield_clean["Yield_hg_ha"]) <= len(yield_df["Value"])
+
+    assert len(yield_clean.loc[~(yield_clean == 0).all(
                                  axis=1)]["Yield_hg_ha"]) == len(
-                                fn.yield_frame()["Yield_hg_ha"])
+                                yield_clean["Yield_hg_ha"])
 
-    assert len(fn.yield_frame().dropna()[
-           "Yield_hg_ha"]) == len(fn.yield_frame()["Yield_hg_ha"])
+    assert len(yield_clean.dropna()[
+           "Yield_hg_ha"]) == len(yield_clean["Yield_hg_ha"])
 
     print("test yield passed")
 
@@ -61,16 +65,18 @@ def test_land():
     """test land_df correct output"""
     land_df = pd.read_csv("FAOSTAT_data_croparea.csv")
 
-    assert len(fn.land_frame().columns) == 3
+    land_clean = fn.land_frame()
 
-    assert len(fn.land_frame()["ha_cropland"]) <= len(land_df["Value"])
+    assert len(land_clean.columns) == 3
 
-    assert len(fn.land_frame().loc[~(fn.land_frame() == 0).all(
-                                   axis=1)]["ha_cropland"]) == len(
-                                   fn.land_frame()["ha_cropland"])
+    assert len(land_clean["ha_cropland"]) <= len(land_df["Value"])
 
-    assert len(fn.land_frame().dropna()[
-           "ha_cropland"]) == len(fn.land_frame()["ha_cropland"])
+    assert len(land_clean.loc[~(land_clean == 0).all(
+                              axis=1)]["ha_cropland"]) == len(
+                              land_clean["ha_cropland"])
+
+    assert len(land_clean.dropna()[
+           "ha_cropland"]) == len(land_clean["ha_cropland"])
 
     print("test land passed")
 
@@ -80,12 +86,14 @@ def test_fert():
 
     fert_df = pd.read_csv("FAOSTAT_data_fertilizer.csv")
 
-    assert len(fn.fert_frame().columns) == 5
+    fert_clean = fn.fert_frame()
 
-    assert len(fn.fert_frame()["kg_nitrogen"]) <= len(fert_df["Value"])
+    assert len(fert_clean.columns) == 5
 
-    assert len(fn.fert_frame().dropna()[
-           "kg_nitrogen"]) == len(fn.fert_frame()["kg_nitrogen"])
+    assert len(fert_clean["kg_nitrogen"]) <= len(fert_df["Value"])
+
+    assert len(fert_clean.dropna()[
+           "kg_nitrogen"]) == len(fert_clean["kg_nitrogen"])
 
     print("test land passed")
 
@@ -94,12 +102,14 @@ def test_manure():
     """test manure_df correct ouput"""
     manure_df = pd.read_csv("FAOSTAT_data_manure.csv")
 
-    assert len(fn.manure_frame().columns) == 3
+    manure_clean = fn.manure_frame()
 
-    assert len(fn.manure_frame()["kg_manure"]) <= len(manure_df["Value"])
+    assert len(manure_clean.columns) == 3
 
-    assert len(fn.manure_frame().dropna()[
-           "kg_manure"]) == len(fn.manure_frame()["kg_manure"])
+    assert len(manure_clean["kg_manure"]) <= len(manure_df["Value"])
+
+    assert len(manure_clean.dropna()[
+           "kg_manure"]) == len(manure_clean["kg_manure"])
 
     print("test manure passed")
 
@@ -108,27 +118,32 @@ def test_pest():
     """test pest_df correct ouput"""
     pest_df = pd.read_csv("FAOSTAT_data_pesticides.csv")
 
-    assert len(fn.pest_frame().columns) == 5
+    pest_clean = fn.pest_frame()
 
-    assert len(fn.pest_frame()["kg_Herbicides"]) <= len(pest_df["Value"])
+    assert len(pest_clean.columns) == 5
 
-    assert len(fn.pest_frame().dropna()[
-           "kg_Herbicides"]) == len(fn.pest_frame()["kg_Herbicides"])
+    assert len(pest_clean["kg_Herbicides"]) <= len(pest_df["Value"])
+
+    assert len(pest_clean.dropna()[
+           "kg_Herbicides"]) == len(pest_clean["kg_Herbicides"])
 
     print("test pest passed")
 
 
 def test_gni():
+    """test gni_frame() for correct output"""
     gni_df = pd.read_csv("gni_data.csv")
 
-    assert len(fn.gni_frame().columns) == 5
+    gni_clean = fn.gni_frame()
 
-    assert len(fn.gni_frame()["GNI"]) >= len(gni_df["1990"])
+    assert len(gni_clean.columns) == 5
 
-    assert len(fn.gni_frame().dropna()[
-           "GNI"]) == len(fn.gni_frame()["GNI"])
+    assert len(gni_clean["GNI"]) >= len(gni_df["1990"])
 
-    assert max(fn.gni_frame()["post_2008"]) == 1
+    assert len(gni_clean.dropna()[
+           "GNI"]) == len(gni_clean["GNI"])
+
+    assert max(gni_clean["post_2008"]) == 1
 
     print("test gni passed")
 
@@ -139,20 +154,20 @@ def test_data_wrangle():
 
     df_yield = fn.yield_frame()
 
-    assert len(fn.wrangle_frame().columns) == 17
+    assert len(wrangle.columns) == 17
 
-    assert max(fn.wrangle_frame()["Year"]) == 2013
+    assert max(wrangle["Year"]) == 2013
 
-    assert min(fn.wrangle_frame()["Year"]) == 1990
+    assert min(wrangle["Year"]) == 1990
 
-    assert len(fn.wrangle_frame()["Total_Yield"]) <= len(
+    assert len(wrangle["Total_Yield"]) <= len(
                df_yield["Yield_hg_ha"])
-    assert len(fn.wrangle_frame().dropna()["Total_Yield"]) == len(
-               fn.wrangle_frame()["Total_Yield"])
+    assert len(wrangle.dropna()["Total_Yield"]) == len(
+               wrangle["Total_Yield"])
     print("data wrangle tests passed")
 
 
-def test_time_plot():
+def test_fung_fert_time_plot():
     """will test the graph_agri function
     in order to check that graphs are returned without
     error. Preliminary plans to make 6 plots"""
@@ -160,12 +175,35 @@ def test_time_plot():
     def subtest_1():
         plt.figure(1)
         num_figures_before = plt.gcf().number
-        fn.time_plot(fn.wrangle_frame())
+        fn.fung_fert_time_plot(wrangle)
         num_figures_after = plt.gcf().number
         assert num_figures_before < num_figures_after
 
     def subtest_2():
-        fn.time_plot(fn.wrangle_frame())
+        fn.fung_fert_time_plot(wrangle)
+        assert plt.gcf().number == 2
+
+    subtest_1()
+
+    subtest_2()
+
+    print("time plot tests passed")
+
+
+def test_yield_time_plot():
+    """will test the graph_agri function
+    in order to check that graphs are returned without
+    error. Preliminary plans to make 6 plots"""
+
+    def subtest_1():
+        plt.figure(2)
+        num_figures_before = plt.gcf().number
+        fn.yield_time_plot(wrangle)
+        num_figures_after = plt.gcf().number
+        assert num_figures_before < num_figures_after
+
+    def subtest_2():
+        fn.yield_time_plot(wrangle)
         assert plt.gcf().number == 5
 
     subtest_1()
@@ -180,13 +218,13 @@ def test_scatter_plots():
     in order to check that graphs are returned without
     error. Preliminary plans to make 6 plots"""
     def subtest_1():
-        fn.scatter_plots(fn.wrangle_frame())
+        fn.scatter_plots(wrangle)
         assert plt.gcf().number == 10
 
     def subtest_2():
         plt.figure(5)
         num_figures_before = plt.gcf().number
-        fn.scatter_plots(fn.wrangle_frame())
+        fn.scatter_plots(wrangle)
         num_figures_after = plt.gcf().number
         assert num_figures_before < num_figures_after
 
@@ -211,17 +249,21 @@ def test_summary_stats():
                             "GNI", "AverageTemperature",
                             "rain_stdev", "Log_Yield"]
 
-    assert len(fn.summary_stats(columns_to_summarize)) == 4
+    sum_stat = fn.summary_stats(columns_to_summarize)
 
-    assert len(fn.summary_stats(columns_to_summarize)[1]) == 13
+    assert len(sum_stat) == 4
 
-    assert isinstance(fn.summary_stats(columns_to_summarize), list) is True
+    assert len(sum_stat[1]) == 13
+
+    assert isinstance(sum_stat, list) is True
 
     columns_to_summarize = ["Total_Yield"]
 
-    assert len(fn.summary_stats(columns_to_summarize)[0]) == 1
+    sum_stat = fn.summary_stats(columns_to_summarize)
 
-    assert len(fn.summary_stats(columns_to_summarize)) == 4
+    assert len(sum_stat[0]) == 1
+
+    assert len(sum_stat) == 4
 
     print("summary stat tests passed")
 
@@ -256,7 +298,10 @@ def test_random_forest():
     by ht erandom_forest_model function"""
     data = fn.wrangle_frame()
 
+    model = fn.random_forest_model(data)
+
     def subtest_1():
+        plt.figure(1)
         fn.random_forest_model(data)
         assert plt.gcf().number == 11
 
@@ -267,14 +312,15 @@ def test_random_forest():
         num_figures_after = plt.gcf().number
         assert num_figures_before < num_figures_after
 
-        subtest_1
+        subtest_1()
 
-        subtest_2
+        subtest_2()
 
-    assert isinstance(fn.random_forest_model(data), float) is True
+    assert isinstance(model, float) is True
 
-    assert fn.random_forest_model(
-           data) >= -1 and fn.random_forest_model(data) <= 0
+    assert model >= -1
+
+    assert model <= 0
 
     print("random forest test passed")
 
@@ -300,7 +346,9 @@ def test_main():
 
     test_data_wrangle()
 
-    test_time_plot()
+    test_fung_fert_time_plot()
+
+    test_yield_time_plot()
 
     test_scatter_plots()
 
