@@ -10,6 +10,13 @@ import seaborn as sns
 import statsmodels.formula.api as smf
 # from sklearn.ensemble import RandomForestRegressor
 
+# disabling no-member error because pylint gives false
+# positives to DatetimeIndex
+
+# https://github.com/PyCQA/pylint/issues/3344
+
+# pylint: disable=E1101
+
 
 def rain_frame():
     """cleans and modifies rain data for merge"""
@@ -557,23 +564,28 @@ def random_forest_model(dataframe):
        uses training and test sets to k-fold cross validate.
        returns random forest model and prediction accuracy"""
     cleaned_data = dataframe
-    feature_list = ["kg_nitrogen_ha", "kg_phosphate_ha",
-                    "kg_potash_ha", "kg_manure_ha",
-                    "kg_Fungicides_Bactericides_ha",
-                    "kg_Herbicides_ha", "kg_Insecticides_ha",
-                    "AverageTemperature",
-                    "rain_stdev", "is_wealthy",
-                    "post_2008"]
+
+    # truncating names to better see on importance chart
+    cleaned_data = cleaned_data.rename(
+                   columns={"kg_nitrogen_ha": "kg_nitro",
+                            "kg_phosphate_ha": "kg_phos",
+                            "kg_potash_ha": "kg_pota",
+                            "kg_manure_ha": "kg_man",
+                            "kg_Fungicides_Bactericides_ha": "kg_fung",
+                            "kg_Herbicides_ha": "kg_herb",
+                            "kg_Insecticides_ha": "kg_ins",
+                            "AverageTemperature": "av_tem",
+                            "rain_stdev": "rain_st",
+                            "is_wealthy": "weal",
+                            "post_2008": "pos_08"})
+
+    feature_list = ["kg_nitro", "kg_phos", "kg_pota", "kg_man",
+                    "kg_fung", "kg_herb", "kg_ins", "av_tem",
+                    "rain_st", "weal", "pos_08"]
 
     x_var = cleaned_data[feature_list]
 
     x_columns = x_var.columns
-
-    # truncates feature names to more easily see on
-    # graph
-
-    for i in range(len(feature_list)):
-        feature_list[i] = feature_list[i][0:5]
 
     # normalizing data
 
@@ -609,6 +621,8 @@ def random_forest_model(dataframe):
     plt.title("relative importance")
 
     plt.savefig("importance_plot")
+
+    plt.clf()
 
     return mean_per
 
