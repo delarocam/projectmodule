@@ -11,15 +11,11 @@ import statsmodels.formula.api as smf
 # from sklearn.ensemble import RandomForestRegressor
 
 
-def wrangle_frame():
-    """"function that cleans and merges 8 csv files into one
-    dataframe, also renames neccessary variables as well as does
-    necessary column transformations"""
-    # wrangling rain_df for merging
-    # the data is static by country as unfortunately no good time series
-    # data existed for rainfall
-
+def rain_frame():
+    """cleans and modifies rain data for merge"""
     rain_df = pd.read_csv("aquastat.csv")
+
+    rain_df.loc[~(rain_df == 0).all(axis=1)]
 
     rain_df = rain_df[["Area", "Value"]]
 
@@ -29,8 +25,12 @@ def wrangle_frame():
     rain_df["Value"] = (rain_df["Value"] - 990) / rain_df["Value"].std()
 
     rain_df = rain_df.rename(columns={"Value": "rain_stdev"})
+    return rain_df
 
-# wrangling tempurature data for merging
+
+def temp_frame():
+    """cleaning and returning yearly
+    temperature data fro merge"""
 
     temp_df = pd.read_csv("tempstat.csv")
 
@@ -44,12 +44,21 @@ def wrangle_frame():
 
     temp_df = temp_df.dropna()
 
+    # averaging out temperature by year by country
+
     temp_df = temp_df.groupby(["Area", "Year"], as_index=False)[
                                "AverageTemperature"].mean()
 
+    # filtering by year for time of interest
+
     temp_df = temp_df[temp_df["Year"] >= 1990]
 
-# wrangling yield_df for merge
+    return temp_df
+
+
+def yield_frame():
+    """cleaning and returning crop yield
+    by country for merge"""
 
     yield_df = pd.read_csv("FAOSTAT_data_croptype.csv")
 
@@ -57,11 +66,17 @@ def wrangle_frame():
 
     yield_df = yield_df[["Area", "Year", "Item", "Yield_hg_ha"]]
 
+    # consolidating crop types into average yield
+
     yield_df = yield_df.groupby(["Area", "Year"],
                                 as_index=False)["Yield_hg_ha"].mean()
+    return yield_df
 
 
 # wrangling land_df for merge
+def land_frame():
+    """cleaning and returning crop area
+    data for merge"""
 
     land_df = pd.read_csv("FAOSTAT_data_croparea.csv")
 
@@ -71,8 +86,12 @@ def wrangle_frame():
 
     land_df["ha_cropland"] = land_df["ha_cropland"] * 1000
 
+    return land_df
 
-# wrangling fertilizer_df for merge
+
+def fert_frame():
+    """cleaning and returning fertilizer
+    data for merge with other frames"""
 
     fertilizer_df = pd.read_csv("FAOSTAT_data_fertilizer.csv")
 
@@ -99,21 +118,31 @@ def wrangle_frame():
                                          "Nutrient potash K2O (total)":
                                          "kg_potash"})
 
+    # data expressed in 1000s of kilograms so multiplying by 1000
+    # to modify by kilograms
     fertilizer_df[["kg_nitrogen", "kg_phosphate",
                    "kg_potash"]] = fertilizer_df[
                                        ["kg_nitrogen",
                                         "kg_phosphate",
                                         "kg_potash"]] * 1000
+    return fertilizer_df
 
 
-# wrangling manure_df for merge
+def manure_frame():
+    """importing and cleaning manure data for merge"""
+
     manure_df = pd.read_csv("FAOSTAT_data_manure.csv")
 
     manure_df = manure_df.rename(columns={"Value": "kg_manure"})
 
     manure_df = manure_df[["Area", "Year", "kg_manure"]]
 
-# wrangling pesticides_df for merge
+    return manure_df
+
+
+def pest_frame():
+    """importing and cleaning pesticides data
+    for merge"""
 
     pesticides_df = pd.read_csv("FAOSTAT_data_pesticides.csv")
 
@@ -134,41 +163,57 @@ def wrangle_frame():
                                         "Insecticides":
                                         "kg_Insecticides"})
 
+    # data expressed in thousands of kg , so normalizing to kg
+
     pesticides_df[["kg_Fungicides_Bactericides", "kg_Herbicides",
                    "kg_Insecticides"]] = pesticides_df[
                                         ["kg_Fungicides_Bactericides",
                                          "kg_Herbicides",
                                          "kg_Insecticides"]] * 1000
+    return pesticides_df.dropna()
 
-# wrangling gnp_df for merge
 
-    gnp_df = pd.read_csv("gnp_data.csv")
+def gni_frame():
+    """importing and cleaning gni data for merge,
+    setting up dummy variablesw for post 2008 and
+    is_wealthy"""
 
-    gnp_df = gnp_df.rename(columns={"Country Name": "Area"})
+    gni_df = pd.read_csv("gni_data.csv")
 
-    keys = [c for c in gnp_df if c.startswith('1') or c.startswith('2')]
+    gni_df = gni_df.rename(columns={"Country Name": "Area"})
 
-    gnp_df = pd.melt(gnp_df, id_vars='Area', value_vars=keys,
+    keys = [c for c in gni_df if c.startswith('1') or c.startswith('2')]
+
+    gni_df = pd.melt(gni_df, id_vars='Area', value_vars=keys,
                      value_name='GNI')
-    gnp_df = gnp_df.rename(columns={"variable": "Year"})
+    gni_df = gni_df.rename(columns={"variable": "Year"})
 
-    gnp_df["Year"] = pd.to_numeric(gnp_df["Year"])
+    gni_df["Year"] = pd.to_numeric(gni_df["Year"])
 
-    gnp_df = gnp_df.loc[gnp_df['Year'] >= 1990]
+    gni_df = gni_df.loc[gni_df['Year'] >= 1990]
 
-    gnp_df = gnp_df.loc[gnp_df['Year'] <= 2013]
+    gni_df = gni_df.loc[gni_df['Year'] <= 2013]
 
-    gnp_df.dropna()
+    gni_df.dropna()
 
-    gnp_df["is_wealthy"] = 0
+    gni_df["is_wealthy"] = 0
 
-    gnp_df["is_wealthy"] = gnp_df.is_wealthy.where(gnp_df.GNI <= 12000, 1)
+    # world bank wealth level for "high income"
+    # is set at around 12000$ per capita
 
-    gnp_df["post_2008"] = 0
+    gni_df["is_wealthy"] = gni_df.is_wealthy.where(gni_df.GNI <= 12000, 1)
 
-    gnp_df["post_2008"] = gnp_df.post_2008.where(gnp_df.Year < 2008, 1)
+    gni_df["post_2008"] = 0
 
-# merging dataframes
+    gni_df["post_2008"] = gni_df.post_2008.where(gni_df.Year < 2008, 1)
+
+    return gni_df.dropna()
+
+
+def wrangle_frame():
+    """merging all above data into one df
+    also defining local function to merge all
+    data together by Area and Year"""
 
     def merger_fun(dataframe1, dataframe2):
         final_df = dataframe1.merge(dataframe2,
@@ -176,6 +221,22 @@ def wrangle_frame():
         return final_df
 
     # final_agro_df = merger_fun(weather_df, yield_df)
+
+    yield_df = yield_frame()
+
+    land_df = land_frame()
+
+    fertilizer_df = fert_frame()
+
+    manure_df = manure_frame()
+
+    pesticides_df = pest_frame()
+
+    temp_df = temp_frame()
+
+    gni_df = gni_frame()
+
+    rain_df = rain_frame()
 
     final_agro_df = yield_df
 
@@ -189,7 +250,7 @@ def wrangle_frame():
 
     final_agro_df = merger_fun(final_agro_df, temp_df)
 
-    final_agro_df = merger_fun(final_agro_df, gnp_df)
+    final_agro_df = merger_fun(final_agro_df, gni_df)
 
     final_agro_df = final_agro_df.merge(rain_df,
                                         on=["Area"], how="right")
@@ -213,18 +274,16 @@ def wrangle_frame():
                                                     "ha_cropland"]
 
     final_agro_df["Log_Yield"] = np.log(final_agro_df["Total_Yield"])
-
     return final_agro_df.dropna()
 
 
 # plotting function
 
 
-def graph_agri(dataframe):
+def time_plot(dataframe):
     """returns informative graphs exploring the
-    relationship between different variables that
-    could effect agricultural yield, including gdp,
-    rainfall, pesticide use, and crop type"""
+    relationship between agricultural yield and inputs
+    expressed over time"""
 
 # importing dataframe
     cleaned_data = dataframe
@@ -251,7 +310,9 @@ def graph_agri(dataframe):
     plt.legend(loc='upper left')
 
     plt.savefig("pesticide_use")
+
     plt.clf()
+
 # charting mean fertilizer use over the years
     plt.figure(2)
 
@@ -277,42 +338,91 @@ def graph_agri(dataframe):
     plt.savefig("fertilizer_use")
 
     plt.clf()
-# charting percent change of crop yeild over years,
+# charting percent change of crop yield over years,
 # to see if their were any global supply shocks
     plt.figure(3)
 
     crop_yield_df = cleaned_data
-    crop_yield_pct = crop_yield_df.groupby("Area",
-                                           as_index=False)[
-                                           "Total_Yield"].pct_change()
-    crop_yield_pct = crop_yield_pct.dropna()
+    crop_yield_np = crop_yield_df.groupby("Area",
+                                          as_index=False)[
+                                          "Total_Yield"].pct_change()
+    crop_yield_np = crop_yield_np.dropna()
 
-    crop_yield_df = pd.merge(crop_yield_df, crop_yield_pct, left_index=True,
+    crop_yield_np = pd.merge(crop_yield_df, crop_yield_np, left_index=True,
                              right_index=True)
 
-    crop_yield_df = crop_yield_df.set_index(["Area",
+    crop_yield_np = crop_yield_np.set_index(["Area",
                                             "Year"])["Total_Yield_y"].unstack()
 
-    crop_yield_df = crop_yield_df.dropna()
+    crop_yield_np = crop_yield_np.dropna()
 
-    crop_yield_df = crop_yield_df.reset_index()
-    Index_heat = crop_yield_df["Area"]
+    crop_yield_np = crop_yield_np.reset_index()
+    Index_heat = crop_yield_np["Area"]
     cols_heat = list()
     for i in list(range(1991, 2013)):
         cols_heat.append(i)
 
-    crop_yield_df = crop_yield_df[cols_heat].to_numpy()
+    crop_yield_np = crop_yield_np[cols_heat].to_numpy()
 
-    crop_yield_df = pd.DataFrame(crop_yield_df, index=Index_heat,
+    crop_yield_np = pd.DataFrame(crop_yield_np, index=Index_heat,
                                  columns=cols_heat)
 
-    sns.heatmap(data=crop_yield_df)
+    sns.heatmap(data=crop_yield_np)
 
     plt.savefig("crop_heat")
+
     plt.clf()
+
+    # plotting global cropyield by year
+
+    plt.figure(4)
+
+    crop_yield_ag = crop_yield_df.groupby("Year",
+                                          as_index=False)["Total_Yield"].mean()
+
+    plt.plot(crop_yield_ag["Year"], crop_yield_ag["Total_Yield"],
+             label="Total_Yield_kg")
+
+    plt.ylabel("total_avg_Yield kg_e^12")
+    plt.xlabel("year")
+    plt.title("Total_avg_Yield 1990-2013")
+    plt.legend(loc='upper left')
+
+    plt.savefig("total_yield")
+
+    plt.clf()
+
+    plt.figure(5)
+
+    crop_yield_wealth = crop_yield_df.groupby(["Year", "is_wealthy"],
+                                              as_index=False)[
+                                              "Total_Yield"].mean()
+
+    crop_yield_poor = crop_yield_wealth[crop_yield_wealth["is_wealthy"] < 1]
+    crop_yield_rich = crop_yield_wealth[crop_yield_wealth["is_wealthy"] >= 1]
+    plt.plot(crop_yield_poor["Year"], crop_yield_poor["Total_Yield"],
+             label="country_gni < 12000")
+
+    plt.plot(crop_yield_rich["Year"], crop_yield_rich["Total_Yield"],
+             label="country_gni >= 12000")
+
+    plt.ylabel("total_avg_Yield kg_e^12")
+    plt.xlabel("year")
+    plt.title("Total avg Yield by wealth level 1990-2013")
+    plt.legend(loc='upper left')
+
+    plt.savefig("total_yield_rich")
+
+    plt.clf()
+
+
+def scatter_plots(dataframe):
+    """plotting basic scatterplots between vars
+    to see if there are any interesting relationships"""
 # plotting percapita gdp against log_yeild, to see
 # if richer countries generally have larger yields
-    plt.figure(4)
+    cleaned_data = dataframe
+    plt.figure(6)
 
     plt.scatter(cleaned_data["GNI"], cleaned_data["Log_Yield"])
 
@@ -325,7 +435,7 @@ def graph_agri(dataframe):
     plt.savefig("GNI_yield")
     plt.clf()
 # plotting insecticide use vs log_yield
-    plt.figure(5)
+    plt.figure(7)
 
     plt.scatter(cleaned_data["kg_Insecticides_ha"], cleaned_data["Log_Yield"])
 
@@ -338,7 +448,7 @@ def graph_agri(dataframe):
     plt.savefig("insecticide_yield")
     plt.clf()
 # plotting herbicide use vs log_yield
-    plt.figure(6)
+    plt.figure(8)
 
     plt.scatter(cleaned_data["kg_Herbicides_ha"], cleaned_data["Log_Yield"])
 
@@ -351,7 +461,7 @@ def graph_agri(dataframe):
     plt.savefig("herbicide_yield")
     plt.clf()
 # plotting fungicide use vs log_yield
-    plt.figure(7)
+    plt.figure(9)
 
     plt.scatter(cleaned_data["kg_Fungicides_Bactericides_ha"],
                 cleaned_data["Log_Yield"])
@@ -365,7 +475,7 @@ def graph_agri(dataframe):
     plt.savefig("Fung_bac_yield")
     plt.clf()
 # plotting manure use vs gdp
-    plt.figure(8)
+    plt.figure(10)
 
     plt.scatter(cleaned_data["AverageTemperature"], cleaned_data[
                             "rain_stdev"])
@@ -384,30 +494,18 @@ def graph_agri(dataframe):
 # printing out summary stats
 def summary_stats(numeric_vector):
     """"returns summary statistics for
-    each relevant column in the dataframe,
+    each relevant numeric column in the dataframe,
     in order to better understand the distribution
     of data, called for each column and returns a list,
-    of mean, st. dev, variance, and median, there are
-    no non-numeric independent columns"""
+    of mean, st. dev, variance, and median"""
     cleaned_data = wrangle_frame()
-    print()
-    print("Column Means")
-    print()
-    print(cleaned_data[numeric_vector].mean(numeric_only=True))
-    print()
-    print("Column st.devs")
-    print()
-    print(cleaned_data[numeric_vector].std(numeric_only=True))
-    print()
-    print("Column variances")
-    print()
-    print(cleaned_data[numeric_vector].var(numeric_only=True))
-    print()
-    print("Column medians")
-    print()
-    print(cleaned_data[numeric_vector].median(numeric_only=True))
-    print()
+    summary_list = []
+    summary_list.append(cleaned_data[numeric_vector].mean(numeric_only=True))
+    summary_list.append(cleaned_data[numeric_vector].std(numeric_only=True))
+    summary_list.append(cleaned_data[numeric_vector].var(numeric_only=True))
+    summary_list.append(cleaned_data[numeric_vector].median(numeric_only=True))
 
+    return summary_list
 # define column vector to summarize
 
 
@@ -494,10 +592,18 @@ def random_forest_model(dataframe):
     print("Mean percentage error")
 
     print(mean_per)
+
     forest.fit(x_var, y_var)
+
     feat_importances = pd.Series(forest.feature_importances_,
                                  index=x_columns)
-    feat_importances.nlargest(4).plot(kind='barh')
+    plt.figure(11)
+    
+    feat_importances.nlargest(11).plot(kind='barh')
+
+    plt.title("relative importance")
+
+    plt.savefig("importance_plot")
 
     return mean_per
 
@@ -506,7 +612,9 @@ def main():
     """function desinged to call all module functions"""
     wrangled = wrangle_frame()
 
-    # graph_agri(wrangled)
+    time_plot(wrangled)
+
+    scatter_plots(wrangled)
 
     columns_to_summarize = ["Total_Yield", "ha_cropland",
                             "kg_nitrogen_ha", "kg_phosphate_ha",
@@ -516,7 +624,24 @@ def main():
                             "GNI", "AverageTemperature",
                             "rain_stdev", "Log_Yield"]
 
-    summary_stats(columns_to_summarize)
+    summary = summary_stats(columns_to_summarize)
+    print()
+    print("Column Means")
+    print()
+    print(summary[0])
+    print()
+    print("Column st.devs")
+    print()
+    print(summary[1])
+    print()
+    print("Column variances")
+    print()
+    print(summary[2])
+    print()
+    print("Column medians")
+    print()
+    print(summary[3])
+    print()
 
     model_1 = ols_model(wrangled)
 
