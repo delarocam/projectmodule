@@ -219,7 +219,7 @@ def test_scatter_plots():
     error. Preliminary plans to make 6 plots"""
     def subtest_1():
         fn.scatter_plots(wrangle)
-        assert plt.gcf().number == 10
+        assert plt.gcf().number == 9
 
     def subtest_2():
         plt.figure(5)
@@ -303,10 +303,10 @@ def test_random_forest():
     def subtest_1():
         plt.figure(1)
         fn.random_forest_model(data)
-        assert plt.gcf().number == 11
+        assert plt.gcf().number == 10
 
     def subtest_2():
-        plt.figure(10)
+        plt.figure(9)
         num_figures_before = plt.gcf().number
         fn.random_forest_model(data)
         num_figures_after = plt.gcf().number

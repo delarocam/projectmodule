@@ -427,15 +427,21 @@ def scatter_plots(dataframe):
 # plotting percapita gdp against log_yeild, to see
 # if richer countries generally have larger yields
     cleaned_data = dataframe
+
+    gni_data = cleaned_data[["GNI", "Total_Yield", "ha_cropland"]]
+
+    gni_data["Total_Yield"] = np.log(gni_data[
+                              "Total_Yield"] / gni_data["ha_cropland"])
+
     plt.figure(6)
 
-    plt.scatter(cleaned_data["GNI"], cleaned_data["Log_Yield"])
+    plt.scatter(gni_data["GNI"], gni_data["Total_Yield"])
 
-    plt.title("GNI vs Log Crop Yield")
+    plt.title("GNI vs Log Crop Yield per hectare")
 
     plt.xlabel("GNI")
 
-    plt.ylabel("Log Yield")
+    plt.ylabel("Log Yield/ha")
 
     plt.savefig("GNI_yield")
     plt.clf()
@@ -457,7 +463,7 @@ def scatter_plots(dataframe):
 
     plt.scatter(cleaned_data["kg_Herbicides_ha"], cleaned_data["Log_Yield"])
 
-    plt.title("Herbecide use vs Log Crop Yield")
+    plt.title("Herbicide use vs Log Crop Yield")
 
     plt.xlabel("Herbicide kg/ha")
 
@@ -478,21 +484,6 @@ def scatter_plots(dataframe):
     plt.ylabel("Log Yield")
 
     plt.savefig("Fung_bac_yield")
-    plt.clf()
-# plotting manure use vs gdp
-    plt.figure(10)
-
-    plt.scatter(cleaned_data["AverageTemperature"], cleaned_data[
-                            "rain_stdev"])
-
-    plt.title("temp vs rain")
-
-    plt.xlabel("temp")
-
-    plt.ylabel("rain")
-
-    plt.savefig("rain_temp_gdp")
-
     plt.clf()
 
 
@@ -614,7 +605,7 @@ def random_forest_model(dataframe):
 
     feat_importances = pd.Series(forest.feature_importances_,
                                  index=x_columns)
-    plt.figure(11)
+    plt.figure(10)
 
     feat_importances.nlargest(11).plot(kind='barh')
 
